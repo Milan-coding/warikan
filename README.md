@@ -52,6 +52,8 @@ uvicorn app.main:app --reload
 
 [Render](https://render.com) の無料プランで公開している。設定は `render.yaml`(Blueprint)。
 
+- 公開URL: https://warikan-94kv.onrender.com/docs (API をブラウザから試せる)
+
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Milan-coding/warikan)
 
 - `main` に push して CI が通ると自動でデプロイされる。
