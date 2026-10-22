@@ -26,3 +26,20 @@ jobs:
 
       - name: Test
         run: pytest -v
+
+  # テストが通ったら Render の Deploy Hook を呼んでデプロイする。
+  # Render 側の自動デプロイ(After CI Checks Pass)が発火しなかったため、こちらから起動する。
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+    steps:
+      - name: Trigger Render deploy
+        if: env.RENDER_DEPLOY_HOOK_URL != ''
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL" > /dev/null
+
+      - name: Skip (secret not set)
+        if: env.RENDER_DEPLOY_HOOK_URL == ''
+        run: echo "::warning::RENDER_DEPLOY_HOOK_URL が未設定のためデプロイをスキップしました"

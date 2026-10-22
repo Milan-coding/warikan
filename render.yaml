@@ -7,8 +7,8 @@ services:
     buildCommand: pip install .
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
-    # main への push で CI が通ったときだけデプロイする
-    autoDeployTrigger: checksPass
+    # デプロイは GitHub Actions が CI 成功後に Deploy Hook で起動する(.github/workflows/ci.yml)
+    autoDeployTrigger: "off"
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.7"

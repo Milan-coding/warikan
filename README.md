@@ -58,7 +58,8 @@ uvicorn app.main:app --reload
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Milan-coding/warikan)
 
-- `main` に push して CI が通ると自動でデプロイされる。
+- `main` に push して CI が通ると、GitHub Actions が Render の Deploy Hook を呼んでデプロイする
+  (Secret `RENDER_DEPLOY_HOOK_URL` に Render の Settings → Deploy Hook の URL を登録しておく)。
 - 無料プランは 15 分アクセスがないとスリープし、次のアクセス時の起動に数十秒かかる。
 
 ## ロードマップ
