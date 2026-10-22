@@ -15,6 +15,10 @@ dev = [
     "ruff>=0.6",
 ]
 
+# pip install . でも画面の HTML がパッケージに含まれるようにする
+[tool.setuptools.package-data]
+app = ["static/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

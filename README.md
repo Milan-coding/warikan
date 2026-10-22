@@ -17,6 +17,7 @@
 | DB | PostgreSQL(予定) | トランザクションで金額データの整合性を守るため |
 | テスト | pytest | |
 | CI | GitHub Actions | Lint とテストを PR ごとに自動実行 |
+| 画面 | HTML + 素の JavaScript | ビルド不要で FastAPI からそのまま配信できるため。DB 導入までは入力をブラウザに保存 |
 
 ## 設計メモ
 
@@ -44,7 +45,7 @@ pytest -v
 ruff check .
 ruff format .
 
-# API 起動 → http://localhost:8000/docs で試せる
+# 起動 → http://localhost:8000/ で画面、/docs で API を試せる
 uvicorn app.main:app --reload
 ```
 
@@ -52,7 +53,8 @@ uvicorn app.main:app --reload
 
 [Render](https://render.com) の無料プランで公開している。設定は `render.yaml`(Blueprint)。
 
-- 公開URL: https://warikan-94kv.onrender.com/docs (API をブラウザから試せる)
+- 公開URL: https://warikan-94kv.onrender.com/ (画面)
+- API ドキュメント: https://warikan-94kv.onrender.com/docs
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Milan-coding/warikan)
 
@@ -65,7 +67,7 @@ uvicorn app.main:app --reload
 - [x] CI(Lint・テスト)
 - [ ] PostgreSQL + SQLAlchemy でグループ・支払いを保存
 - [ ] グループ作成・支払い登録・精算結果の API
-- [ ] 最低限の画面
+- [x] 最低限の画面(HTML 1 枚。入力はブラウザに保存し、精算は API で計算)
 - [ ] デプロイして友達に使ってもらう
 
 ## 工夫した点・苦労した点

@@ -11,6 +11,13 @@ def test_health():
     assert res.json() == {"status": "ok"}
 
 
+def test_トップページで画面を返す():
+    res = client.get("/")
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("text/html")
+    assert "割り勘精算" in res.text
+
+
 def test_精算プレビュー():
     res = client.post(
         "/settlements/preview",

@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>割り勘精算</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1d2129; --muted: #6b7280;
+    --line: #e3e6ea; --accent: #2563eb; --accent-text: #fff;
+    --plus: #15803d; --minus: #b91c1c; --error-bg: #fef2f2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111418; --card: #1a1e24; --text: #e7e9ec; --muted: #9aa1ab;
+      --line: #2c323a; --accent: #4f8cff; --accent-text: #fff;
+      --plus: #4ade80; --minus: #f87171; --error-bg: #2a1616;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    line-height: 1.6;
+  }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 24px; font-size: .9rem; }
+  section {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px; margin-bottom: 16px;
+  }
+  h2 { font-size: 1rem; margin: 0 0 12px; }
+  input, select, button { font: inherit; color: inherit; }
+  input[type=text], input[type=number], select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg);
+  }
+  button {
+    padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.link { border: none; background: none; color: var(--muted); padding: 4px 8px; }
+  .row { display: flex; gap: 8px; }
+  .row > input { flex: 1; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--bg);
+  }
+  .payment { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+  .payment:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+  .payment-head { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
+  label.field { display: block; font-size: .8rem; color: var(--muted); }
+  label.field > select, label.field > input { font-size: 1rem; color: var(--text); }
+  .split { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: .9rem; }
+  .split label { display: inline-flex; align-items: center; gap: 4px; }
+  .actions { display: flex; gap: 8px; justify-content: space-between; margin-top: 12px; }
+  .empty { color: var(--muted); font-size: .9rem; margin: 0; }
+  .error {
+    background: var(--error-bg); color: var(--minus); border-radius: 8px;
+    padding: 8px 12px; margin-top: 12px; font-size: .9rem;
+  }
+  ul.transfers { list-style: none; padding: 0; margin: 0; }
+  ul.transfers li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 1.05rem; }
+  ul.transfers li:last-child { border-bottom: none; }
+  .amount { font-weight: 700; font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; margin-top: 12px; }
+  td { padding: 4px 0; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .plus { color: var(--plus); } .minus { color: var(--minus); }
+  .note { color: var(--muted); font-size: .8rem; margin: 8px 0 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>割り勘精算</h1>
+  <p class="lead">立て替えを入力すると、できるだけ少ない送金回数で精算する方法を出します。</p>
+
+  <section>
+    <h2>1. メンバー</h2>
+    <form id="member-form" class="row">
+      <input id="member-name" type="text" placeholder="名前を入力" maxlength="20" autocomplete="off">
+      <button type="submit">追加</button>
+    </form>
+    <div id="members" class="chips"></div>
+  </section>
+
+  <section>
+    <h2>2. 支払い</h2>
+    <div id="payments"></div>
+    <p id="payments-empty" class="empty">メンバーを2人以上追加すると支払いを入力できます。</p>
+    <div class="actions">
+      <button id="add-payment" type="button">＋ 支払いを追加</button>
+      <button id="calc" type="button" class="primary">精算する</button>
+    </div>
+    <div id="error" class="error" role="alert" hidden></div>
+  </section>
+
+  <section id="result" hidden>
+    <h2>3. 精算方法</h2>
+    <ul id="transfers" class="transfers"></ul>
+    <table><tbody id="balances"></tbody></table>
+    <p class="note">残高: プラスは受け取る人、マイナスは払う人。割り切れない端数は立て替えた人が多めに負担します。</p>
+  </section>
+
+  <button id="reset" type="button" class="link">入力をすべて消す</button>
+</main>
+
+<script>
+// 入力内容はこのブラウザにだけ保存する(サーバーには精算時に送るだけ)
+const STORAGE_KEY = "warikan-state-v1";
+let state = load() || { members: [], payments: [] };
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return null; }
+}
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+}
+
+const $ = (id) => document.getElementById(id);
+function el(tag, props = {}, children = []) {
+  const e = Object.assign(document.createElement(tag), props);
+  for (const c of [].concat(children)) e.append(c);
+  return e;
+}
+const yen = (n) => n.toLocaleString("ja-JP") + "円";
+
+// ---------- メンバー ----------
+$("member-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const name = $("member-name").value.trim();
+  if (!name || state.members.includes(name)) return;
+  state.members.push(name);
+  // 既存の支払いの割り勘対象にも新メンバーを加える(後から合流した人は外せばよい)
+  for (const p of state.payments) p.split.push(name);
+  $("member-name").value = "";
+  update();
+});
+
+function removeMember(name) {
+  state.members = state.members.filter((m) => m !== name);
+  state.payments = state.payments.filter((p) => p.payer !== name);
+  for (const p of state.payments) p.split = p.split.filter((m) => m !== name);
+  update();
+}
+
+// ---------- 支払い ----------
+$("add-payment").addEventListener("click", () => {
+  state.payments.push({ payer: state.members[0], amount: "", split: [...state.members] });
+  update();
+});
+
+function renderPayments() {
+  const box = $("payments");
+  box.replaceChildren();
+  state.payments.forEach((p, i) => {
+    const payer = el("select", { onchange: (e) => { p.payer = e.target.value; update(); } },
+      state.members.map((m) => el("option", { value: m, textContent: m, selected: m === p.payer })));
+    const amount = el("input", {
+      type: "number", min: 1, step: 1, inputMode: "numeric", placeholder: "金額", value: p.amount,
+      oninput: (e) => { p.amount = e.target.value; save(); },
+    });
+    const del = el("button", { type: "button", className: "link", textContent: "削除",
+      onclick: () => { state.payments.splice(i, 1); update(); } });
+
+    const split = el("div", { className: "split" }, [
+      el("span", { className: "field", textContent: "割る人:" }),
+      ...state.members.map((m) => el("label", {}, [
+        el("input", { type: "checkbox", checked: p.split.includes(m),
+          onchange: (e) => {
+            p.split = e.target.checked ? [...p.split, m] : p.split.filter((x) => x !== m);
+            save();
+          } }),
+        m,
+      ])),
+    ]);
+
+    box.append(el("div", { className: "payment" }, [
+      el("div", { className: "payment-head" }, [
+        el("label", { className: "field" }, ["立て替えた人", payer]),
+        el("label", { className: "field" }, ["金額(円)", amount]),
+        del,
+      ]),
+      split,
+    ]));
+  });
+  $("payments-empty").hidden = state.members.length >= 2;
+  $("add-payment").disabled = state.members.length < 2;
+}
+
+function renderMembers() {
+  $("members").replaceChildren(...state.members.map((m) =>
+    el("span", { className: "chip" }, [m,
+      el("button", { type: "button", className: "link", textContent: "×",
+        ariaLabel: m + "を削除", onclick: () => removeMember(m) })])));
+}
+
+// ---------- 精算 ----------
+function showError(msg) {
+  $("error").textContent = msg;
+  $("error").hidden = !msg;
+}
+
+function buildRequest() {
+  if (state.payments.length === 0) throw new Error("支払いを1件以上入力してください。");
+  return state.payments.map((p, i) => {
+    const amount = Number(p.amount);
+    if (!Number.isInteger(amount) || amount <= 0) {
+      throw new Error(`${i + 1}件目の金額を1円以上の整数で入力してください。`);
+    }
+    if (p.split.length === 0) throw new Error(`${i + 1}件目の「割る人」を1人以上選んでください。`);
+    // 端数は先頭の人が負担するので、立て替えた人が含まれていれば先頭にする
+    const ordered = state.members.filter((m) => p.split.includes(m));
+    const split_among = ordered.includes(p.payer)
+      ? [p.payer, ...ordered.filter((m) => m !== p.payer)]
+      : ordered;
+    return { payer_id: p.payer, amount, split_among };
+  });
+}
+
+$("calc").addEventListener("click", async () => {
+  showError("");
+  let body;
+  try { body = buildRequest(); } catch (e) { showError(e.message); return; }
+
+  $("calc").disabled = true;
+  $("calc").textContent = "計算中…";
+  try {
+    const res = await fetch("/settlements/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error("入力内容を確認してください。(" + res.status + ")");
+    renderResult(await res.json());
+  } catch (e) {
+    showError(e.message === "Failed to fetch" ? "サーバーに接続できませんでした。少し待って再度お試しください。" : e.message);
+  } finally {
+    $("calc").disabled = false;
+    $("calc").textContent = "精算する";
+  }
+});
+
+function renderResult({ balances, transfers }) {
+  $("transfers").replaceChildren(...(transfers.length
+    ? transfers.map((t) => el("li", {}, [
+        `${t.from_id} → ${t.to_id} に `, el("span", { className: "amount", textContent: yen(t.amount) })]))
+    : [el("li", { textContent: "送金の必要はありません。" })]));
+
+  $("balances").replaceChildren(...Object.entries(balances).map(([m, v]) =>
+    el("tr", {}, [el("td", { textContent: m }),
+      el("td", { className: v > 0 ? "plus" : v < 0 ? "minus" : "",
+        textContent: (v > 0 ? "+" : "") + yen(v) })])));
+
+  $("result").hidden = false;
+  $("result").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+$("reset").addEventListener("click", () => {
+  if (!confirm("メンバーと支払いの入力をすべて消しますか？")) return;
+  state = { members: [], payments: [] };
+  $("result").hidden = true;
+  showError("");
+  update();
+});
+
+function update() {
+  save();
+  renderMembers();
+  renderPayments();
+}
+update();
+</script>
+</body>
+</html>
