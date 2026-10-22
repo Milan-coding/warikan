@@ -18,6 +18,10 @@ def test_トップページで画面を返す():
     assert "割り勘精算" in res.text
 
 
+def test_トップページはHEADにも応答する():
+    assert client.head("/").status_code == 200
+
+
 def test_精算プレビュー():
     res = client.post(
         "/settlements/preview",

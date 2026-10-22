@@ -36,7 +36,8 @@ class SettlementOut(BaseModel):
     transfers: list[TransferOut]
 
 
-@app.get("/", include_in_schema=False)
+# Render の起動確認などが HEAD で来るので GET と同じく受け付ける
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 def index() -> FileResponse:
     # 画面は HTML 1 枚で、入力の保持と表示はブラウザ側で行う
     return FileResponse(STATIC_DIR / "index.html")
