@@ -25,7 +25,8 @@
     line-height: 1.6;
   }
   main { max-width: 640px; margin: 0 auto; padding: 24px 16px 64px; }
-  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; overflow-wrap: anywhere; }
+  h1 a { color: inherit; text-decoration: none; }
   .lead { color: var(--muted); margin: 0 0 24px; font-size: .9rem; }
   section {
     background: var(--card); border: 1px solid var(--line); border-radius: 12px;
@@ -35,93 +36,143 @@
   input, select, button { font: inherit; color: inherit; }
   input[type=text], input[type=number], select {
     width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
-    background: var(--bg);
+    background: var(--bg); min-width: 0;
   }
   button {
     padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
-    background: var(--card); cursor: pointer;
+    background: var(--card); cursor: pointer; white-space: nowrap;
   }
+  button:disabled { opacity: .5; cursor: default; }
   button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
   button.link { border: none; background: none; color: var(--muted); padding: 4px 8px; }
   .row { display: flex; gap: 8px; }
   .row > input { flex: 1; }
+  .stack > * + * { margin-top: 10px; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .chip {
     display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px;
     border: 1px solid var(--line); border-radius: 999px; background: var(--bg);
   }
-  .payment { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
-  .payment:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
-  .payment-head { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
   label.field { display: block; font-size: .8rem; color: var(--muted); }
   label.field > select, label.field > input { font-size: 1rem; color: var(--text); }
-  .split { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: .9rem; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .split { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .9rem; }
   .split label { display: inline-flex; align-items: center; gap: 4px; }
-  .actions { display: flex; gap: 8px; justify-content: space-between; margin-top: 12px; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; }
   .empty { color: var(--muted); font-size: .9rem; margin: 0; }
   .error {
     background: var(--error-bg); color: var(--minus); border-radius: 8px;
-    padding: 8px 12px; margin-top: 12px; font-size: .9rem;
+    padding: 8px 12px; margin: 0 0 16px; font-size: .9rem;
   }
-  ul.transfers { list-style: none; padding: 0; margin: 0; }
-  ul.transfers li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 1.05rem; }
-  ul.transfers li:last-child { border-bottom: none; }
+  ul.list { list-style: none; padding: 0; margin: 0; }
+  ul.list > li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  ul.list > li:last-child { border-bottom: none; }
+  .pay-item { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; }
+  .pay-item .sub { color: var(--muted); font-size: .8rem; }
+  ul.transfers li { font-size: 1.05rem; }
   .amount { font-weight: 700; font-variant-numeric: tabular-nums; }
   table { width: 100%; border-collapse: collapse; font-size: .9rem; margin-top: 12px; }
   td { padding: 4px 0; border-bottom: 1px solid var(--line); }
   td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
   .plus { color: var(--plus); } .minus { color: var(--minus); }
   .note { color: var(--muted); font-size: .8rem; margin: 8px 0 0; }
+  .share input { font-size: .85rem; color: var(--muted); }
+  a { color: var(--accent); }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <main>
-  <h1>割り勘精算</h1>
-  <p class="lead">立て替えを入力すると、できるだけ少ない送金回数で精算する方法を出します。</p>
+  <h1><a href="/" id="title">割り勘精算</a></h1>
+  <p class="lead" id="lead">立て替えを記録すると、できるだけ少ない送金回数で精算する方法を出します。</p>
+  <div id="error" class="error" role="alert" hidden></div>
 
-  <section>
-    <h2>1. メンバー</h2>
-    <form id="member-form" class="row">
-      <input id="member-name" type="text" placeholder="名前を入力" maxlength="20" autocomplete="off">
-      <button type="submit">追加</button>
-    </form>
-    <div id="members" class="chips"></div>
-  </section>
+  <!-- ===== トップ: グループを作る ===== -->
+  <div id="home" hidden>
+    <section>
+      <h2>グループを作る</h2>
+      <form id="create-form" class="stack">
+        <label class="field">グループ名
+          <input id="create-name" type="text" placeholder="例: 箱根旅行" maxlength="100" required autocomplete="off">
+        </label>
+        <label class="field">メンバー(読点・カンマ・空白区切り。あとから追加もできます)
+          <input id="create-members" type="text" placeholder="例: たろう、はなこ、じろう" autocomplete="off">
+        </label>
+        <div class="actions"><button type="submit" class="primary">作成する</button></div>
+      </form>
+      <p class="note">作成するとグループ専用の URL ができます。その URL を知っている人は誰でも見たり編集したりできます。</p>
+    </section>
 
-  <section>
-    <h2>2. 支払い</h2>
-    <div id="payments"></div>
-    <p id="payments-empty" class="empty">メンバーを2人以上追加すると支払いを入力できます。</p>
-    <div class="actions">
-      <button id="add-payment" type="button">＋ 支払いを追加</button>
-      <button id="calc" type="button" class="primary">精算する</button>
-    </div>
-    <div id="error" class="error" role="alert" hidden></div>
-  </section>
+    <section id="legacy" hidden>
+      <h2>以前の入力が残っています</h2>
+      <p class="empty" id="legacy-summary"></p>
+      <div class="actions" style="margin-top:12px">
+        <button id="legacy-discard" type="button" class="link">消す</button>
+        <button id="legacy-import" type="button">この内容でグループを作る</button>
+      </div>
+    </section>
 
-  <section id="result" hidden>
-    <h2>3. 精算方法</h2>
-    <ul id="transfers" class="transfers"></ul>
-    <table><tbody id="balances"></tbody></table>
-    <p class="note">残高: プラスは受け取る人、マイナスは払う人。割り切れない端数は立て替えた人が多めに負担します。</p>
-  </section>
+    <section id="recent" hidden>
+      <h2>最近開いたグループ</h2>
+      <ul id="recent-list" class="list"></ul>
+      <p class="note">このブラウザにだけ記録しています。</p>
+    </section>
+  </div>
 
-  <button id="reset" type="button" class="link">入力をすべて消す</button>
+  <!-- ===== グループのページ ===== -->
+  <div id="group" hidden>
+    <section class="share">
+      <h2>共有リンク</h2>
+      <div class="row">
+        <input id="share-url" type="text" readonly aria-label="共有リンク">
+        <button id="copy" type="button">コピー</button>
+      </div>
+      <p class="note">このリンクを送ると、メンバー全員で同じ記録を見て編集できます。</p>
+    </section>
+
+    <section>
+      <h2>1. メンバー</h2>
+      <form id="member-form" class="row">
+        <input id="member-name" type="text" placeholder="名前を入力" maxlength="50" autocomplete="off">
+        <button type="submit">追加</button>
+      </form>
+      <div id="members" class="chips"></div>
+    </section>
+
+    <section>
+      <h2>2. 支払いを記録</h2>
+      <p id="payment-disabled" class="empty">メンバーを2人以上追加すると支払いを記録できます。</p>
+      <form id="payment-form" class="stack">
+        <div class="grid2">
+          <label class="field">立て替えた人<select id="pay-payer"></select></label>
+          <label class="field">金額(円)
+            <input id="pay-amount" type="number" min="1" step="1" inputmode="numeric" placeholder="金額" required>
+          </label>
+        </div>
+        <label class="field">内容(任意)
+          <input id="pay-desc" type="text" placeholder="例: 夕食" maxlength="100" autocomplete="off">
+        </label>
+        <div class="split" id="pay-split"></div>
+        <div class="actions"><button id="pay-submit" type="submit" class="primary">記録する</button></div>
+      </form>
+    </section>
+
+    <section>
+      <h2>記録した支払い</h2>
+      <ul id="payments" class="list"></ul>
+      <p id="payments-empty" class="empty">まだ支払いはありません。</p>
+    </section>
+
+    <section>
+      <h2>3. 精算方法</h2>
+      <ul id="transfers" class="list transfers"></ul>
+      <table><tbody id="balances"></tbody></table>
+      <p class="note">残高: プラスは受け取る人、マイナスは払う人。割り切れない端数は立て替えた人が多めに負担します。</p>
+    </section>
+  </div>
 </main>
 
 <script>
-// 入力内容はこのブラウザにだけ保存する(サーバーには精算時に送るだけ)
-const STORAGE_KEY = "warikan-state-v1";
-let state = load() || { members: [], payments: [] };
-
-function load() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return null; }
-}
-function save() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
-}
-
 const $ = (id) => document.getElementById(id);
 function el(tag, props = {}, children = []) {
   const e = Object.assign(document.createElement(tag), props);
@@ -130,151 +181,284 @@ function el(tag, props = {}, children = []) {
 }
 const yen = (n) => n.toLocaleString("ja-JP") + "円";
 
-// ---------- メンバー ----------
-$("member-form").addEventListener("submit", (ev) => {
-  ev.preventDefault();
-  const name = $("member-name").value.trim();
-  if (!name || state.members.includes(name)) return;
-  state.members.push(name);
-  // 既存の支払いの割り勘対象にも新メンバーを加える(後から合流した人は外せばよい)
-  for (const p of state.payments) p.split.push(name);
-  $("member-name").value = "";
-  update();
-});
-
-function removeMember(name) {
-  state.members = state.members.filter((m) => m !== name);
-  state.payments = state.payments.filter((p) => p.payer !== name);
-  for (const p of state.payments) p.split = p.split.filter((m) => m !== name);
-  update();
-}
-
-// ---------- 支払い ----------
-$("add-payment").addEventListener("click", () => {
-  state.payments.push({ payer: state.members[0], amount: "", split: [...state.members] });
-  update();
-});
-
-function renderPayments() {
-  const box = $("payments");
-  box.replaceChildren();
-  state.payments.forEach((p, i) => {
-    const payer = el("select", { onchange: (e) => { p.payer = e.target.value; update(); } },
-      state.members.map((m) => el("option", { value: m, textContent: m, selected: m === p.payer })));
-    const amount = el("input", {
-      type: "number", min: 1, step: 1, inputMode: "numeric", placeholder: "金額", value: p.amount,
-      oninput: (e) => { p.amount = e.target.value; save(); },
-    });
-    const del = el("button", { type: "button", className: "link", textContent: "削除",
-      onclick: () => { state.payments.splice(i, 1); update(); } });
-
-    const split = el("div", { className: "split" }, [
-      el("span", { className: "field", textContent: "割る人:" }),
-      ...state.members.map((m) => el("label", {}, [
-        el("input", { type: "checkbox", checked: p.split.includes(m),
-          onchange: (e) => {
-            p.split = e.target.checked ? [...p.split, m] : p.split.filter((x) => x !== m);
-            save();
-          } }),
-        m,
-      ])),
-    ]);
-
-    box.append(el("div", { className: "payment" }, [
-      el("div", { className: "payment-head" }, [
-        el("label", { className: "field" }, ["立て替えた人", payer]),
-        el("label", { className: "field" }, ["金額(円)", amount]),
-        del,
-      ]),
-      split,
-    ]));
-  });
-  $("payments-empty").hidden = state.members.length >= 2;
-  $("add-payment").disabled = state.members.length < 2;
-}
-
-function renderMembers() {
-  $("members").replaceChildren(...state.members.map((m) =>
-    el("span", { className: "chip" }, [m,
-      el("button", { type: "button", className: "link", textContent: "×",
-        ariaLabel: m + "を削除", onclick: () => removeMember(m) })])));
-}
-
-// ---------- 精算 ----------
 function showError(msg) {
   $("error").textContent = msg;
   $("error").hidden = !msg;
+  // エラー表示はページ上部にあるので、スマホで下の方を操作していても気づけるようにする
+  if (msg) $("error").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-function buildRequest() {
-  if (state.payments.length === 0) throw new Error("支払いを1件以上入力してください。");
-  return state.payments.map((p, i) => {
+// ---------- API ----------
+async function api(method, path, body) {
+  let res;
+  try {
+    res = await fetch(path, {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error("サーバーに接続できませんでした。少し待って再度お試しください。");
+  }
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    // FastAPI のエラーは detail が文字列(自前のエラー)か配列(入力検証エラー)
+    const detail = typeof data?.detail === "string" ? data.detail : "入力内容を確認してください。";
+    const err = new Error(detail);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+// ボタンを押している間は二重送信しないようにする
+async function busy(button, fn) {
+  showError("");
+  button.disabled = true;
+  try { await fn(); } catch (e) { showError(e.message); } finally { button.disabled = false; }
+}
+
+// ---------- ブラウザに覚えておくもの(便利機能なので失敗しても動くようにする) ----------
+const RECENT_KEY = "warikan-recent-v1";
+const LEGACY_KEY = "warikan-state-v1"; // DB 導入前にブラウザに保存していた入力
+
+function readJSON(key) {
+  try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+}
+function writeJSON(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+function removeKey(key) {
+  try { localStorage.removeItem(key); } catch {}
+}
+function rememberGroup(g) {
+  const list = (readJSON(RECENT_KEY) || []).filter((x) => x.id !== g.id);
+  writeJSON(RECENT_KEY, [{ id: g.id, name: g.name }, ...list].slice(0, 10));
+}
+function forgetGroup(id) {
+  writeJSON(RECENT_KEY, (readJSON(RECENT_KEY) || []).filter((x) => x.id !== id));
+}
+
+// ================= トップページ =================
+function splitNames(text) {
+  const names = text.split(/[、,，\s]+/).map((s) => s.trim()).filter(Boolean);
+  return [...new Set(names)];
+}
+
+$("create-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const button = ev.submitter || ev.target.querySelector("button");
+  busy(button, async () => {
+    const g = await api("POST", "/groups", {
+      name: $("create-name").value,
+      members: splitNames($("create-members").value),
+    });
+    location.href = "/g/" + g.id;
+  });
+});
+
+function renderHome() {
+  $("home").hidden = false;
+
+  const recent = readJSON(RECENT_KEY) || [];
+  $("recent").hidden = recent.length === 0;
+  $("recent-list").replaceChildren(...recent.map((g) =>
+    el("li", {}, el("a", { href: "/g/" + g.id, textContent: g.name }))));
+
+  const legacy = readJSON(LEGACY_KEY);
+  const hasLegacy = legacy && Array.isArray(legacy.members) && legacy.members.length > 0;
+  $("legacy").hidden = !hasLegacy;
+  if (hasLegacy) {
+    $("legacy-summary").textContent =
+      `メンバー ${legacy.members.length} 人・支払い ${legacy.payments.length} 件の入力がこのブラウザに残っています。`;
+  }
+}
+
+$("legacy-discard").addEventListener("click", () => {
+  if (!confirm("以前の入力を消しますか？")) return;
+  removeKey(LEGACY_KEY);
+  $("legacy").hidden = true;
+});
+
+$("legacy-import").addEventListener("click", (ev) => busy(ev.target, async () => {
+  const legacy = readJSON(LEGACY_KEY);
+  const g = await api("POST", "/groups", { name: "割り勘", members: legacy.members });
+  const idOf = Object.fromEntries(g.members.map((m) => [m.name, m.id]));
+  for (const p of legacy.payments) {
     const amount = Number(p.amount);
-    if (!Number.isInteger(amount) || amount <= 0) {
-      throw new Error(`${i + 1}件目の金額を1円以上の整数で入力してください。`);
+    // 金額が未入力だったり割る人がいなかったりする書きかけの行は移さない
+    if (!Number.isInteger(amount) || amount <= 0 || !p.split?.length || !(p.payer in idOf)) continue;
+    await api("POST", `/groups/${g.id}/payments`, {
+      payer_id: idOf[p.payer], amount, split_among: orderSplit(idOf[p.payer], p.split.map((n) => idOf[n]), g.members),
+    });
+  }
+  removeKey(LEGACY_KEY);
+  location.href = "/g/" + g.id;
+}));
+
+// ================= グループのページ =================
+let group = null;      // GET /groups/{id} の結果
+let splitDraft = null; // 支払いフォームで選んでいる「割る人」(メンバー ID の Set)
+
+// 端数は先頭の人が負担するので、立て替えた人が含まれていれば先頭にする。残りはメンバー順。
+function orderSplit(payerId, ids, members) {
+  const ordered = members.map((m) => m.id).filter((id) => ids.includes(id));
+  return ordered.includes(payerId) ? [payerId, ...ordered.filter((id) => id !== payerId)] : ordered;
+}
+
+async function loadGroup(groupId) {
+  try {
+    group = await api("GET", "/groups/" + encodeURIComponent(groupId));
+  } catch (e) {
+    if (e.status === 404) {
+      forgetGroup(groupId);
+      showError("グループが見つかりませんでした。URL を確認してください。");
+      $("lead").innerHTML = '<a href="/">トップへ戻る</a>';
+      return;
     }
-    if (p.split.length === 0) throw new Error(`${i + 1}件目の「割る人」を1人以上選んでください。`);
-    // 端数は先頭の人が負担するので、立て替えた人が含まれていれば先頭にする
-    const ordered = state.members.filter((m) => p.split.includes(m));
-    const split_among = ordered.includes(p.payer)
-      ? [p.payer, ...ordered.filter((m) => m !== p.payer)]
-      : ordered;
-    return { payer_id: p.payer, amount, split_among };
+    throw e;
+  }
+  rememberGroup(group);
+  document.title = group.name + " - 割り勘精算";
+  $("title").textContent = group.name;
+  $("lead").textContent = "立て替えを記録すると、できるだけ少ない送金回数で精算する方法を出します。";
+  $("group").hidden = false;
+  renderGroup();
+  await loadSettlement();
+}
+
+async function loadSettlement() {
+  const s = await api("GET", `/groups/${group.id}/settlement`);
+  const name = Object.fromEntries(group.members.map((m) => [m.id, m.name]));
+  $("transfers").replaceChildren(...(s.transfers.length
+    ? s.transfers.map((t) => el("li", {}, [
+        `${name[t.from_member_id]} → ${name[t.to_member_id]} に `,
+        el("span", { className: "amount", textContent: yen(t.amount) })]))
+    : [el("li", { textContent: "送金の必要はありません。" })]));
+  $("balances").replaceChildren(...s.balances.map((b) =>
+    el("tr", {}, [el("td", { textContent: b.name }),
+      el("td", { className: b.balance > 0 ? "plus" : b.balance < 0 ? "minus" : "",
+        textContent: (b.balance > 0 ? "+" : "") + yen(b.balance) })])));
+}
+
+// 変更したあとはサーバーから読み直して、表示を DB の内容に合わせる
+async function refresh() {
+  await loadGroup(group.id);
+}
+
+function renderGroup() {
+  const { members, payments } = group;
+  const name = Object.fromEntries(members.map((m) => [m.id, m.name]));
+  $("share-url").value = location.origin + "/g/" + group.id;
+
+  // メンバー
+  $("members").replaceChildren(...members.map((m) =>
+    el("span", { className: "chip" }, [m.name,
+      el("button", { type: "button", className: "link", textContent: "×",
+        ariaLabel: m.name + "を削除", onclick: (ev) => deleteMember(ev.target, m) })])));
+
+  // 支払いフォーム。入力途中の内容はできるだけ残す
+  const canPay = members.length >= 2;
+  $("payment-form").hidden = !canPay;
+  $("payment-disabled").hidden = canPay;
+  const ids = members.map((m) => m.id);
+  const prevPayer = Number($("pay-payer").value);
+  $("pay-payer").replaceChildren(...members.map((m) =>
+    el("option", { value: m.id, textContent: m.name, selected: m.id === prevPayer })));
+  // 初回は全員、2 回目以降は選択を保ったまま、新しく増えたメンバーは選択済みにする
+  const known = splitDraft ? splitDraft.known : new Set();
+  const selected = new Set(ids.filter((id) => !known.has(id) || splitDraft.selected.has(id)));
+  splitDraft = { known: new Set(ids), selected };
+  $("pay-split").replaceChildren(
+    el("span", { className: "field", textContent: "割る人:" }),
+    ...members.map((m) => el("label", {}, [
+      el("input", { type: "checkbox", checked: selected.has(m.id),
+        onchange: (e) => { e.target.checked ? selected.add(m.id) : selected.delete(m.id); } }),
+      m.name,
+    ])));
+
+  // 記録した支払い(新しいものが上)
+  $("payments-empty").hidden = payments.length > 0;
+  $("payments").replaceChildren(...[...payments].reverse().map((p) =>
+    el("li", { className: "pay-item" }, [
+      el("div", {}, [
+        el("div", {}, [`${name[p.payer_id]} が `, el("span", { className: "amount", textContent: yen(p.amount) }),
+          p.description ? `(${p.description})` : ""]),
+        el("div", { className: "sub",
+          textContent: "負担: " + p.shares.map((s) => `${name[s.member_id]} ${yen(s.amount)}`).join("、") }),
+      ]),
+      el("button", { type: "button", className: "link", textContent: "削除",
+        onclick: (ev) => deletePayment(ev.target, p) }),
+    ])));
+}
+
+$("member-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const input = $("member-name");
+  if (!input.value.trim()) return;
+  busy(ev.submitter, async () => {
+    await api("POST", `/groups/${group.id}/members`, { name: input.value });
+    input.value = "";
+    await refresh();
+  });
+});
+
+function deleteMember(button, m) {
+  if (!confirm(`${m.name} さんをメンバーから外しますか？`)) return;
+  busy(button, async () => {
+    await api("DELETE", `/groups/${group.id}/members/${m.id}`);
+    await refresh();
   });
 }
 
-$("calc").addEventListener("click", async () => {
-  showError("");
-  let body;
-  try { body = buildRequest(); } catch (e) { showError(e.message); return; }
-
-  $("calc").disabled = true;
-  $("calc").textContent = "計算中…";
-  try {
-    const res = await fetch("/settlements/preview", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+$("payment-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  busy($("pay-submit"), async () => {
+    const amount = Number($("pay-amount").value);
+    if (!Number.isInteger(amount) || amount <= 0) throw new Error("金額を1円以上の整数で入力してください。");
+    const payerId = Number($("pay-payer").value);
+    const split = orderSplit(payerId, [...splitDraft.selected], group.members);
+    if (split.length === 0) throw new Error("「割る人」を1人以上選んでください。");
+    await api("POST", `/groups/${group.id}/payments`, {
+      payer_id: payerId, amount, description: $("pay-desc").value, split_among: split,
     });
-    if (!res.ok) throw new Error("入力内容を確認してください。(" + res.status + ")");
-    renderResult(await res.json());
-  } catch (e) {
-    showError(e.message === "Failed to fetch" ? "サーバーに接続できませんでした。少し待って再度お試しください。" : e.message);
-  } finally {
-    $("calc").disabled = false;
-    $("calc").textContent = "精算する";
+    $("pay-amount").value = "";
+    $("pay-desc").value = "";
+    await refresh();
+  });
+});
+
+function deletePayment(button, p) {
+  if (!confirm(`この支払い(${yen(p.amount)})を削除しますか？`)) return;
+  busy(button, async () => {
+    await api("DELETE", `/groups/${group.id}/payments/${p.id}`);
+    await refresh();
+  });
+}
+
+$("copy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText($("share-url").value);
+    $("copy").textContent = "コピーしました";
+  } catch {
+    $("share-url").select(); // クリップボードが使えない環境では選択だけしておく
   }
+  setTimeout(() => { $("copy").textContent = "コピー"; }, 2000);
 });
 
-function renderResult({ balances, transfers }) {
-  $("transfers").replaceChildren(...(transfers.length
-    ? transfers.map((t) => el("li", {}, [
-        `${t.from_id} → ${t.to_id} に `, el("span", { className: "amount", textContent: yen(t.amount) })]))
-    : [el("li", { textContent: "送金の必要はありません。" })]));
-
-  $("balances").replaceChildren(...Object.entries(balances).map(([m, v]) =>
-    el("tr", {}, [el("td", { textContent: m }),
-      el("td", { className: v > 0 ? "plus" : v < 0 ? "minus" : "",
-        textContent: (v > 0 ? "+" : "") + yen(v) })])));
-
-  $("result").hidden = false;
-  $("result").scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-$("reset").addEventListener("click", () => {
-  if (!confirm("メンバーと支払いの入力をすべて消しますか？")) return;
-  state = { members: [], payments: [] };
-  $("result").hidden = true;
-  showError("");
-  update();
+// 他の人が更新しているかもしれないので、タブに戻ってきたら読み直す
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && group) refresh().catch((e) => showError(e.message));
 });
 
-function update() {
-  save();
-  renderMembers();
-  renderPayments();
+// ---------- 起動 ----------
+const match = location.pathname.match(/^\/g\/([^/]+)\/?$/);
+if (match) {
+  loadGroup(decodeURIComponent(match[1])).catch((e) => showError(e.message));
+} else {
+  renderHome();
 }
-update();
 </script>
 </body>
 </html>
