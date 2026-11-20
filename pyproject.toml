@@ -6,6 +6,9 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.13",
 ]
 
 [project.optional-dependencies]
@@ -14,6 +17,10 @@ dev = [
     "httpx>=0.27",
     "ruff>=0.6",
 ]
+
+# migrations/ はパッケージに含めない(デプロイ先ではリポジトリから直接 alembic を実行する)
+[tool.setuptools]
+packages = ["app"]
 
 # pip install . でも画面の HTML がパッケージに含まれるようにする
 [tool.setuptools.package-data]
@@ -29,3 +36,5 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+# Alembic が自動生成するマイグレーションは長い行が多いので行長チェックだけ外す
+per-file-ignores = { "migrations/versions/*" = ["E501"] }

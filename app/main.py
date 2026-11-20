@@ -1,7 +1,9 @@
 """API の入口。
 
-DB を入れる前の段階として、支払いリストを受け取って精算結果を返すだけの
-エンドポイントを用意している。`uvicorn app.main:app --reload` で起動し、
+- /groups/...: グループ・メンバー・支払いを DB に保存して精算する(app/groups.py)
+- /settlements/preview: 支払いリストを受け取って精算結果を返すだけ(DB を使わない)
+
+`uvicorn app.main:app --reload` で起動し、
 http://localhost:8000/ で画面、http://localhost:8000/docs で API を試せる。
 """
 
@@ -11,9 +13,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from app import groups
 from app.settlement import Payment, calculate_balances, settle, split_equally
 
 app = FastAPI(title="割り勘API")
+app.include_router(groups.router)
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -39,7 +43,13 @@ class SettlementOut(BaseModel):
 # Render の起動確認などが HEAD で来るので GET と同じく受け付ける
 @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 def index() -> FileResponse:
-    # 画面は HTML 1 枚で、入力の保持と表示はブラウザ側で行う
+    # 画面は HTML 1 枚。表示の切り替えとデータの取得はブラウザ側の JavaScript で行う
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+# グループのページ(共有用 URL)。中身は同じ HTML で、JS が URL から ID を読んで API を呼ぶ
+@app.api_route("/g/{group_id}", methods=["GET", "HEAD"], include_in_schema=False)
+def group_page(group_id: str) -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 

@@ -14,10 +14,10 @@
 | 役割 | 技術 | 選んだ理由 |
 | --- | --- | --- |
 | API | FastAPI (Python) | Flask の経験を活かしつつ、型ヒントによる入力検証と OpenAPI ドキュメント自動生成を使いたかったため |
-| DB | PostgreSQL(予定) | トランザクションで金額データの整合性を守るため |
+| DB | PostgreSQL + SQLAlchemy 2.0 / Alembic | トランザクションと制約(CHECK・外部キー)で金額データの整合性を守るため。スキーマ変更は Alembic のマイグレーションで管理 |
 | テスト | pytest | |
 | CI | GitHub Actions | Lint とテストを PR ごとに自動実行 |
-| 画面 | HTML + 素の JavaScript | ビルド不要で FastAPI からそのまま配信できるため。DB 導入までは入力をブラウザに保存 |
+| 画面 | HTML + 素の JavaScript | ビルド不要で FastAPI からそのまま配信できるため |
 
 ## 設計メモ
 
@@ -25,6 +25,35 @@
 - 金額はすべて **円単位の int** で保持し、float は使わない(誤差防止)。
 - 均等割りで割り切れない端数は、**対象メンバーの先頭から 1 円ずつ**多く負担する。
   - 例: 1000 円を 3 人 → 334 / 333 / 333
+
+### データの保存
+| テーブル | 内容 |
+| --- | --- |
+| `groups` | 友達グループ。ID は推測されにくいランダム文字列(22 文字) |
+| `members` | グループのメンバー。グループ内で名前は一意 |
+| `payments` | 立て替え 1 件(金額は `CHECK (amount > 0)`) |
+| `payment_shares` | 誰がいくら負担するかの内訳。入力順(`position`)も保存 |
+
+- 負担額の内訳は**登録時に確定して保存**する。端数ルールを後から変えても過去の支払いは変わらない。
+- 支払いと内訳は 1 トランザクションで保存し、片方だけ残ることがないようにしている。
+- 支払いに関わっているメンバーは削除できない(API は 409、DB も外部キー `RESTRICT` で拒否)。
+- 認証はまだ無く、グループの URL を知っている人が読み書きできる「URL が合言葉」方式。
+
+### API
+| メソッド | パス | 内容 |
+| --- | --- | --- |
+| POST | `/groups` | グループ作成(メンバーも同時に登録可) |
+| GET | `/groups/{id}` | グループ・メンバー・支払いの一覧 |
+| POST / DELETE | `/groups/{id}/members[/{member_id}]` | メンバーの追加・削除 |
+| POST / DELETE | `/groups/{id}/payments[/{payment_id}]` | 支払いの登録・削除 |
+| GET | `/groups/{id}/settlement` | 保存済みの支払いから精算結果を計算 |
+| POST | `/settlements/preview` | DB を使わず、送った支払いだけで精算 |
+
+### 画面
+- `/` でグループを作ると `/g/{グループID}` に移動する。この URL を友達に送って共有する。
+- 支払いは記録した時点で保存され、精算結果は変更のたびに自動で計算し直す。
+- 他の人の更新は、タブに戻ってきたとき(`visibilitychange`)に読み直して反映する。
+- 最近開いたグループはブラウザ(localStorage)に記録。DB 導入前にブラウザに保存していた入力は、トップの「この内容でグループを作る」で移行できる。
 
 ### 精算アルゴリズム
 1. 各支払いから、メンバーごとの残高(立て替えた額 − 負担すべき額)を出す。全員の合計は必ず 0。
@@ -38,8 +67,15 @@
 ```bash
 pip install -e ".[dev]"
 
-# テスト
+# DB の作成・更新(DATABASE_URL 未設定ならカレントの warikan.db(SQLite)を使う)
+alembic upgrade head
+
+# テスト(既定はメモリ上の SQLite。PostgreSQL で試すなら DATABASE_URL を指定)
 pytest -v
+DATABASE_URL=postgresql://user:pass@localhost:5432/warikan pytest -v
+
+# モデルを変更したらマイグレーションを作る
+alembic revision --autogenerate -m "変更内容"
 
 # Lint / フォーマット
 ruff check .
@@ -52,6 +88,10 @@ uvicorn app.main:app --reload
 ## デプロイ
 
 [Render](https://render.com) の無料プランで公開している。設定は `render.yaml`(Blueprint)。
+
+- DB は Render の PostgreSQL(無料プラン)。起動時に `alembic upgrade head` を実行してから API を立ち上げる。
+  - 無料の PostgreSQL は**作成から 30 日で期限切れ**になる。継続して使うなら有料プランか外部の DB(Neon など)に切り替える。
+- CI では PostgreSQL のサービスコンテナを立て、マイグレーションの適用・巻き戻しとテストを本番と同じ DB で実行している。
 
 - 公開URL: https://warikan-94kv.onrender.com/ (画面)
 - API ドキュメント: https://warikan-94kv.onrender.com/docs
