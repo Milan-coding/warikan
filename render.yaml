@@ -5,10 +5,22 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install .
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # 無料プランでは preDeployCommand が使えないので、起動時にマイグレーションを適用する
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     # デプロイは GitHub Actions が CI 成功後に Deploy Hook で起動する(.github/workflows/ci.yml)
     autoDeployTrigger: "off"
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.7"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: warikan-db
+          property: connectionString
+
+databases:
+  # 注意: Render の無料 PostgreSQL は作成から 30 日で期限切れになる(有料プランへの移行か作り直しが必要)
+  - name: warikan-db
+    plan: free
+    databaseName: warikan
+    user: warikan

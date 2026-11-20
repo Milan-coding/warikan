@@ -52,3 +52,10 @@ def test_金額0は422():
         json=[{"payer_id": "alice", "amount": 0, "split_among": ["bob"]}],
     )
     assert res.status_code == 422
+
+
+def test_グループページは同じ画面を返す():
+    res = client.get("/g/abcdef")
+    assert res.status_code == 200
+    assert "割り勘精算" in res.text
+    assert client.head("/g/abcdef").status_code == 200
